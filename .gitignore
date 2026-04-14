@@ -1,0 +1,13 @@
+.env
+.venv/
+venv/
+__pycache__/
+*.pyc
+.DS_Store
+
+# Working directories — your photos and generated listings stay local
+photos/*/
+listings/*/
+listings/*.csv
+!photos/.gitkeep
+!listings/.gitkeep
