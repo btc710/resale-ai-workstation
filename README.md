@@ -53,9 +53,82 @@ cp .env.example .env
 
 ## Usage
 
-### 1. Organize photos
+### Shop-walk capture protocol (the fast way)
 
-One folder per item. Folder name becomes the SKU. All photos of the same item in the same folder:
+Walk the shop with one phone. **Do not tap "new folder" for each item** — let timestamps do the organizing.
+
+For every item:
+
+1. **Triage first** — 2-second sniff test. If it's <$20 potential, skip the photos (donate/dump pile).
+2. **Burst 3-5 photos in <30 seconds:**
+   - Wide front
+   - Back / opposite side
+   - Any **marks, labels, signatures, model numbers** (close + crisp)
+   - Any **damage** (chips, stains, tears)
+   - Optional: inside / bottom
+3. **Pause 60+ seconds before the next item.** The time gap is how the tool separates items.
+4. **Voice notes welcome.** If you know something the camera can't show ("smells like cigarettes", "works when plugged in", "hallmark is a crown over W"), transcribe into a `.txt` file timestamped near the item. The cluster tool picks it up as `notes.txt` automatically.
+
+### 1. Dump phone photos
+
+Drop everything into `photos/raw/` — a single flat folder. Don't organize manually.
+
+### 2. Cluster by timestamp
+
+```bash
+# Preview first (no files moved)
+python -m resale cluster photos/raw/ --dry-run
+
+# Looks right? Do it.
+python -m resale cluster photos/raw/
+```
+
+Output:
+
+```
+🔍 CLUSTERING — gap threshold: 45s
+
+  📦 2026-04-14-001: 4 photos over 18s
+  📦 2026-04-14-002: 3 photos over 12s + 1 note
+  📦 2026-04-14-003: 5 photos over 22s
+  ...
+✓ 47 item folders created
+
+Next: python -m resale batch photos/
+```
+
+Tune the gap if you shoot fast (`--gap 30`) or slow (`--gap 90`).
+
+### 3. Generate listings
+
+```bash
+# All items at once (after cluster)
+python -m resale batch photos/
+
+# Or one at a time
+python -m resale list photos/2026-04-14-001/
+```
+
+Prompt caching kicks in from item #2 onward — per-item cost drops ~90%.
+
+### 4. Check inventory
+
+```bash
+python -m resale inventory
+```
+
+Shows total list value, priority breakdown, marketplace split, and top 10 by price. Highlights items flagged `needs_research`.
+
+### 5. Cross-post via crosslist.com
+
+1. Open `listings/listings.csv`
+2. Eyeball `listing.md` files for items flagged `needs_research` before posting
+3. Import the CSV into crosslist.com (they map custom columns during import)
+4. Ship.
+
+### Manual folder naming (alternative to clustering)
+
+If you'd rather organize by hand, one folder per item, folder name = SKU. Suggested naming: `YYYY-MM-DD-NNN-short-description`. Sortable, unique, descriptive at a glance.
 
 ```
 photos/
@@ -63,13 +136,11 @@ photos/
 │   ├── front.jpg
 │   ├── side.jpg
 │   ├── bottom-mark.jpg
-│   └── inside.jpg
+│   └── notes.txt          ← optional, operator context
 ├── 2026-04-14-002-craftsman-wrench/
 │   ├── IMG_1234.jpg
 │   └── IMG_1235.jpg
 ```
-
-Suggested naming: `YYYY-MM-DD-NNN-short-description`. Sortable, unique, descriptive at a glance.
 
 ### 2. List one item
 
@@ -134,7 +205,10 @@ v3: OBS overlay for Whatnot live streams, Quest 3 point-of-pickup triage, invent
 
 | | |
 |---|---|
-| `python -m resale list <folder>` | List one item |
-| `python -m resale list <folder> --notes "..."` | List one item with operator context |
-| `python -m resale batch <folder>` | List every subfolder |
-| `python -m resale schema` | Print the JSON schema of a Listing |
+| `python -m resale cluster <raw_dir>` | Group loose photos into per-item folders by EXIF timestamp |
+| `python -m resale cluster <raw_dir> --dry-run` | Preview clustering without moving files |
+| `python -m resale list <folder>` | Generate listing for one item |
+| `python -m resale list <folder> --notes "..."` | Generate listing with operator context |
+| `python -m resale batch <folder>` | Generate listings for every subfolder |
+| `python -m resale inventory` | Summary: total value, priority, marketplace split, top 10 |
+| `python -m resale schema` | Print the Listing JSON schema |
