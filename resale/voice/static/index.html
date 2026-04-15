@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#0a0a0a" />
+    <title>Resale Voice Copilot</title>
+    <link rel="stylesheet" href="/static/style.css" />
+  </head>
+  <body>
+    <header>
+      <h1>🎙 Voice Copilot</h1>
+      <button id="reset-btn" title="Clear conversation">↺</button>
+    </header>
+
+    <main id="transcript"></main>
+
+    <div id="status" class="hint">
+      Tap the mic to talk. Say "stop" or tap again to send.
+    </div>
+
+    <footer>
+      <button id="mic-btn" aria-label="Push to talk">
+        <span class="mic-icon">🎤</span>
+      </button>
+    </footer>
+
+    <script src="/static/app.js"></script>
+  </body>
+</html>
