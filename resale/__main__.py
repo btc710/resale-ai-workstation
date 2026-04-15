@@ -27,6 +27,8 @@ from dotenv import load_dotenv
 from .cluster import cluster_folder
 from .export import append_to_csv, listing_to_markdown
 from .lister import list_item
+from .memory import MemoryStore
+from .memory.store import VALID_KINDS, format_capture_brief
 from .prompts import Listing
 
 load_dotenv()
@@ -216,6 +218,89 @@ def cmd_inventory(_args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_capture(args: argparse.Namespace) -> int:
+    """Quick capture from the CLI — for non-voice moments."""
+    store = MemoryStore()
+    text = " ".join(args.text).strip()
+    if not text:
+        print("Need some text to capture.", file=sys.stderr)
+        return 1
+    tags = [t.strip() for t in (args.tags or "").split(",") if t.strip()]
+    cap = store.capture(kind=args.kind, text=text, tags=tags)
+    print(f"✓ {cap.id} ({cap.kind}) captured.")
+    return 0
+
+
+def cmd_review(args: argparse.Namespace) -> int:
+    """Review captures: open tasks, unreviewed inbox, recent ideas."""
+    store = MemoryStore()
+    stats = store.stats()
+    print(f"🧠 Memory: {stats['total']} captures total")
+    print(f"   By kind:   {stats['by_kind']}")
+    print(f"   By status: {stats['by_status']}\n")
+
+    if args.kind:
+        # Filtered view
+        items = store.recent(n=args.limit, kind=args.kind)
+        print(f"Recent {args.kind}s (newest first):")
+        for c in items:
+            print(f"  {format_capture_brief(c)}")
+        return 0
+
+    # Default review surface: open tasks + open ideas + recent notes/items/facts
+    open_tasks = store.list_open(kind="task", limit=args.limit)
+    open_ideas = store.list_open(kind="idea", limit=args.limit)
+    recent_other = [
+        c
+        for c in store.recent(n=args.limit * 2)
+        if c.kind in {"note", "item", "fact"}
+    ][: args.limit]
+
+    if open_tasks:
+        print(f"📋 {len(open_tasks)} open task{'s' if len(open_tasks) != 1 else ''} (oldest first):")
+        for c in open_tasks:
+            print(f"  {format_capture_brief(c)}")
+        print()
+    else:
+        print("📋 No open tasks.\n")
+
+    if open_ideas:
+        print(f"💡 {len(open_ideas)} open idea{'s' if len(open_ideas) != 1 else ''}:")
+        for c in open_ideas:
+            print(f"  {format_capture_brief(c)}")
+        print()
+
+    if recent_other:
+        print(f"📝 Recent notes/items/facts:")
+        for c in recent_other:
+            print(f"  {format_capture_brief(c)}")
+    return 0
+
+
+def cmd_recall(args: argparse.Namespace) -> int:
+    """Search memory from the CLI."""
+    store = MemoryStore()
+    query = " ".join(args.query)
+    results = store.recall(query=query, kind=args.kind, limit=args.limit)
+    if not results:
+        print(f"No matches for {query!r}.")
+        return 0
+    print(f"{len(results)} match{'es' if len(results) != 1 else ''} for {query!r}:")
+    for c in results:
+        print(f"  {format_capture_brief(c)}")
+    return 0
+
+
+def cmd_complete(args: argparse.Namespace) -> int:
+    """Mark a capture as done."""
+    store = MemoryStore()
+    if store.set_status(args.id, "done"):
+        print(f"✓ {args.id} marked done.")
+        return 0
+    print(f"✗ No capture with id {args.id!r}.", file=sys.stderr)
+    return 1
+
+
 def cmd_voice(args: argparse.Namespace) -> int:
     """Start the voice-to-voice web UI."""
     try:
@@ -280,6 +365,44 @@ def main(argv: list[str] | None = None) -> int:
     p_voice.add_argument("--host", default="0.0.0.0", help="Bind host (default: 0.0.0.0).")
     p_voice.add_argument("--port", type=int, default=8765, help="Port (default: 8765).")
     p_voice.set_defaults(func=cmd_voice)
+
+    p_capture = sub.add_parser(
+        "capture", help="Quick-save a thought, task, idea, item, or fact to memory."
+    )
+    p_capture.add_argument(
+        "--kind", choices=sorted(VALID_KINDS), default="note",
+        help="Capture kind (default: note).",
+    )
+    p_capture.add_argument(
+        "--tags", default="", help="Comma-separated tags, e.g. 'whatnot,pricing'."
+    )
+    p_capture.add_argument("text", nargs="+", help="The content to save.")
+    p_capture.set_defaults(func=cmd_capture)
+
+    p_review = sub.add_parser(
+        "review",
+        help="Review open tasks, ideas, and recent captures (ADHD command center).",
+    )
+    p_review.add_argument(
+        "--kind", choices=sorted(VALID_KINDS),
+        help="Show only this kind (default: dashboard view of tasks + ideas + notes).",
+    )
+    p_review.add_argument("--limit", type=int, default=10, help="Items per section.")
+    p_review.set_defaults(func=cmd_review)
+
+    p_recall = sub.add_parser("recall", help="Search memory by keyword.")
+    p_recall.add_argument(
+        "--kind", choices=sorted(VALID_KINDS), help="Filter to one kind."
+    )
+    p_recall.add_argument("--limit", type=int, default=10, help="Max results.")
+    p_recall.add_argument("query", nargs="+", help="Search query.")
+    p_recall.set_defaults(func=cmd_recall)
+
+    p_complete = sub.add_parser(
+        "complete", help="Mark a capture as done (use the cap_xxxxx id)."
+    )
+    p_complete.add_argument("id", help="Capture id, e.g. cap_abc123.")
+    p_complete.set_defaults(func=cmd_complete)
 
     p_schema = sub.add_parser("schema", help="Print the Listing JSON schema.")
     p_schema.set_defaults(func=cmd_schema)

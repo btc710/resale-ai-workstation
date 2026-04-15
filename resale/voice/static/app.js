@@ -139,10 +139,27 @@
   });
 
   // ---- SSE chat stream + TTS sentence queueing ----
+  const TOOL_LABELS = {
+    capture: "📝 saving",
+    recall: "🔎 recalling",
+    list_open: "📋 reading list",
+    complete: "✓ marking done",
+  };
+
+  function addToolChip(toolName) {
+    const el = document.createElement("div");
+    el.className = "tool-chip";
+    el.textContent = TOOL_LABELS[toolName] || `🔧 ${toolName}`;
+    transcriptEl.appendChild(el);
+    transcriptEl.scrollTop = transcriptEl.scrollHeight;
+    return el;
+  }
+
   async function sendMessage(message) {
-    const replyBubble = addBubble("assistant", "");
+    let replyBubble = addBubble("assistant", "");
     let buffer = "";
     let spokenUpTo = 0;
+    let pendingToolChip = null;
 
     try {
       const resp = await fetch("/api/chat", {
@@ -171,12 +188,40 @@
           const line = ev.trim();
           if (!line.startsWith("data:")) continue;
           const payload = JSON.parse(line.slice(5).trim());
+
           if (payload.error) {
             replyBubble.textContent = `[error] ${payload.error}`;
             setStatus("Error from API.", "error");
             return;
           }
-          if (payload.delta) {
+
+          if (payload.tool_start) {
+            // If reply bubble has no text yet, remove it; tool chip
+            // will sit by itself, then a fresh bubble starts after.
+            if (!buffer && replyBubble) {
+              replyBubble.remove();
+              replyBubble = null;
+              spokenUpTo = 0;
+            }
+            pendingToolChip = addToolChip(payload.tool_start.name);
+            continue;
+          }
+
+          if (payload.tool_done) {
+            if (pendingToolChip) {
+              pendingToolChip.classList.add("done");
+              pendingToolChip = null;
+            }
+            continue;
+          }
+
+          if (payload.delta !== undefined) {
+            // Start a new bubble after tool calls if needed
+            if (!replyBubble) {
+              replyBubble = addBubble("assistant", "");
+              buffer = "";
+              spokenUpTo = 0;
+            }
             buffer += payload.delta;
             replyBubble.textContent = buffer;
             transcriptEl.scrollTop = transcriptEl.scrollHeight;
@@ -184,22 +229,23 @@
             // Flush complete sentences to TTS as they arrive
             spokenUpTo = flushSentencesToTTS(buffer, spokenUpTo);
           }
+
           if (payload.done) {
             // Speak whatever tail remains (no terminal punctuation)
             const tail = buffer.slice(spokenUpTo).trim();
             if (tail) speak(tail);
             const u = payload.usage || {};
             const cacheHit = u.cache_read > 0
-              ? ` (cache: ${u.cache_read}/${u.input_tokens + u.cache_read} read)`
+              ? ` · cache ${u.cache_read} read`
               : "";
             setStatus(
-              `Done. ${u.output_tokens || 0} out tokens${cacheHit}. Tap mic to reply.`,
+              `Done · ${u.output_tokens || 0} out${cacheHit}. Tap mic to reply.`,
             );
           }
         }
       }
     } catch (err) {
-      replyBubble.textContent = `[error] ${err.message}`;
+      if (replyBubble) replyBubble.textContent = `[error] ${err.message}`;
       setStatus("Network error.", "error");
     }
   }

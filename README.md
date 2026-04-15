@@ -201,6 +201,74 @@ v3: OBS overlay for Whatnot live streams, Quest 3 point-of-pickup triage, invent
 
 ---
 
+## Memory (persistent, token-efficient)
+
+Your AI partner has a brain that survives across sessions. Stored locally in `.memory/`:
+
+- **`core.md`** — your operator profile, always loaded into context (~500 token budget). Edit it directly any time.
+- **`captures.jsonl`** — append-only log of every idea/task/item/fact ever saved
+- **`statuses.jsonl`** — append-only status changes (tasks marked done, etc.)
+
+### Why it stays cheap
+
+- Memory is **pulled, not pushed**. The system prompt + `core.md` are always there (~3.5K tokens) and cached so they cost ~$0.0005 per turn after the first. Beyond that, nothing from memory is in the context until Claude *decides* to pull it via the `recall` tool.
+- Conversation history is capped at the last 20 user/assistant pairs (sliding window).
+- Per voice exchange: **~$0.005 amortized** after cache warms up. Half a cent.
+
+### How it stays evolving
+
+Five capture kinds — Claude picks which:
+
+| Kind | Use for |
+|---|---|
+| `task` | Things to do (follow up with Dave, list those Funkos, call the auctioneer) |
+| `idea` | Things to try / explore (test Whatnot pricing for vintage tools, set up an LLC for resale vertical) |
+| `item` | Notable items mentioned that need follow-up before listing |
+| `fact` | Stuff learned (Pyrex Spring Blossom 1972 sells $80-150, Dave pays cash for tools) |
+| `note` | Catch-all |
+
+Tasks/ideas have an **open / in_progress / done / archived** status. `list_open` returns oldest first so stale stuff bubbles to the top — the antidote to ADHD drift.
+
+### Voice flow examples
+
+> "Remember Dave's coming Tuesday for that 5-bedroom estate cleanout, mostly mid-century stuff."
+> 📝 saving — "Got it, on your list."
+
+> "What was that price you quoted on the vintage Singer?"
+> 🔎 recalling — "$385, listed three days ago. Marked high priority."
+
+> "What's on my list?"
+> 📋 reading list — "Three open tasks. Dave's estate Tuesday, list those Funko Pops on Whatnot, and follow up on the Anderson lead from last week."
+
+> "Mark the Funko one done."
+> ✓ marking done — "Killed."
+
+### CLI quick commands
+
+```bash
+# Quick capture without opening voice
+python -m resale capture --kind task "Email auctioneer about Saturday consignment"
+python -m resale capture --kind item --tags "pyrex,vintage" "Cinderella set, complete, light wear on yellow bowl"
+
+# Review surface — your ADHD command center
+python -m resale review
+
+# Search memory
+python -m resale recall pyrex
+python -m resale recall --kind task dave
+
+# Mark something done
+python -m resale complete cap_abc123def
+```
+
+`python -m resale review` shows total counts, all open tasks (oldest first), open ideas, and recent notes/items/facts. Run it daily with your coffee.
+
+### Editing your profile
+
+Open `.memory/core.md` in your editor any time. Add context, preferences, current focus areas. It auto-loads into every voice/CLI session as the cached profile block. Keep it under ~500 tokens for cost efficiency — if you need more depth on something, capture it as a `fact` instead.
+
+---
+
 ## Voice copilot
 
 Talk to your AI partner. Browser-based, no app to install.
@@ -224,9 +292,18 @@ Voice quality: uses your operating system's built-in voices (free). Want studio-
 
 ## Commands
 
+**Voice + memory**
 | | |
 |---|---|
 | `python -m resale voice` | Start the voice-to-voice web UI |
+| `python -m resale capture <text>` | Quick-save to memory (`--kind task/idea/item/fact/note`, `--tags a,b`) |
+| `python -m resale review` | ADHD command center: open tasks, ideas, recent captures |
+| `python -m resale recall <query>` | Search memory by keyword |
+| `python -m resale complete <cap_id>` | Mark a task done |
+
+**Listings pipeline**
+| | |
+|---|---|
 | `python -m resale cluster <raw_dir>` | Group loose photos into per-item folders by EXIF timestamp |
 | `python -m resale cluster <raw_dir> --dry-run` | Preview clustering without moving files |
 | `python -m resale list <folder>` | Generate listing for one item |

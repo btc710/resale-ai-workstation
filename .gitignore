@@ -5,6 +5,9 @@ __pycache__/
 *.pyc
 .DS_Store
 
+# Persistent memory — your ongoing brain. Keep local. Back up via your own means.
+.memory/
+
 # Working directories — your photos and generated listings stay local
 photos/*/
 listings/*/
