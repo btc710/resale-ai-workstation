@@ -201,10 +201,32 @@ v3: OBS overlay for Whatnot live streams, Quest 3 point-of-pickup triage, invent
 
 ---
 
+## Voice copilot
+
+Talk to your AI partner. Browser-based, no app to install.
+
+```bash
+python -m resale voice
+```
+
+Open `http://localhost:8765` on your laptop, **or** open `http://<your-LAN-ip>:8765` on your phone (same WiFi). Tap the mic, talk, get a spoken reply.
+
+What it does well right now:
+- Push-to-talk: tap mic, talk, tap to send (or pause and it auto-sends)
+- Streams Claude Opus 4.6 sentence-by-sentence so the voice starts speaking before Claude finishes
+- Knows it's *your* resale operation's copilot — short answers, decisive pricing, marketplace recs, no markdown read aloud
+- Conversation memory per browser (clear with the ↺ button)
+- Barge-in: tap the mic while Claude is talking to interrupt and respond
+
+Browser support: Chrome, Edge, Android Chrome (full). iOS Safari: TTS works, but STT is limited — use the iOS keyboard's mic button as a workaround.
+
+Voice quality: uses your operating system's built-in voices (free). Want studio-quality voices? Tell me and I'll wire in ElevenLabs or OpenAI TTS.
+
 ## Commands
 
 | | |
 |---|---|
+| `python -m resale voice` | Start the voice-to-voice web UI |
 | `python -m resale cluster <raw_dir>` | Group loose photos into per-item folders by EXIF timestamp |
 | `python -m resale cluster <raw_dir> --dry-run` | Preview clustering without moving files |
 | `python -m resale list <folder>` | Generate listing for one item |

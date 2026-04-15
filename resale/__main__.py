@@ -216,6 +216,20 @@ def cmd_inventory(_args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_voice(args: argparse.Namespace) -> int:
+    """Start the voice-to-voice web UI."""
+    try:
+        from .voice.server import run as run_voice
+    except ImportError as e:
+        print(
+            f"Voice deps not installed ({e}). Run: pip install -r requirements.txt",
+            file=sys.stderr,
+        )
+        return 1
+    run_voice(host=args.host, port=args.port)
+    return 0
+
+
 def cmd_schema(_args: argparse.Namespace) -> int:
     """Print the Listing JSON schema — useful for verifying structure."""
     print(json.dumps(Listing.model_json_schema(), indent=2))
@@ -259,6 +273,13 @@ def main(argv: list[str] | None = None) -> int:
 
     p_inv = sub.add_parser("inventory", help="Summary of all generated listings.")
     p_inv.set_defaults(func=cmd_inventory)
+
+    p_voice = sub.add_parser(
+        "voice", help="Start the voice-to-voice web UI (browser STT/TTS + Claude)."
+    )
+    p_voice.add_argument("--host", default="0.0.0.0", help="Bind host (default: 0.0.0.0).")
+    p_voice.add_argument("--port", type=int, default=8765, help="Port (default: 8765).")
+    p_voice.set_defaults(func=cmd_voice)
 
     p_schema = sub.add_parser("schema", help="Print the Listing JSON schema.")
     p_schema.set_defaults(func=cmd_schema)
