@@ -1,0 +1,24 @@
+{
+  "name": "jarvis-workstation",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Jarvis-style voice dashboard with self-improving capabilities, built on Electron + Next.js + Claude",
+  "main": "electron/main.js",
+  "scripts": {
+    "dev": "concurrently -k -n NEXT,ELECTRON -c green,blue \"npm:dev:next\" \"npm:dev:electron\"",
+    "dev:next": "cd renderer && next dev -p 3210",
+    "dev:electron": "wait-on tcp:3210 && cross-env NODE_ENV=development electron .",
+    "build": "cd renderer && next build",
+    "start": "cross-env NODE_ENV=production electron ."
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.40.0",
+    "dotenv": "^16.4.5"
+  },
+  "devDependencies": {
+    "concurrently": "^9.0.0",
+    "cross-env": "^7.0.3",
+    "electron": "^33.0.0",
+    "wait-on": "^8.0.0"
+  }
+}

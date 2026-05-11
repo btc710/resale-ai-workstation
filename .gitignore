@@ -1,0 +1,17 @@
+node_modules/
+.next/
+out/
+dist/
+build/
+.env
+.env.local
+*.log
+.DS_Store
+.vscode/
+.idea/
+
+# Jarvis local state (user-specific, never commit)
+data/memory.json
+data/analytics.json
+data/aliases.json
+data/self-edit-history.json
