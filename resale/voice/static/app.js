@@ -7,8 +7,84 @@
   const $ = (id) => document.getElementById(id);
   const transcriptEl = $("transcript");
   const micBtn = $("mic-btn");
+  const camBtn = $("cam-btn");
   const statusEl = $("status");
   const resetBtn = $("reset-btn");
+
+  // ---- Camera capture state ----
+  let pendingPhotos = []; // [{data: base64, media_type: "image/jpeg"}]
+  let cameraStream = null;
+
+  camBtn.addEventListener("click", () => openCamera());
+
+  function openCamera() {
+    const overlay = $("camera-overlay");
+    const video = $("camera-video");
+    const thumbs = $("camera-thumbs");
+    const shutterBtn = $("camera-shutter");
+    const closeBtn = $("camera-close");
+    const countEl = $("camera-count");
+
+    thumbs.innerHTML = "";
+    countEl.textContent = pendingPhotos.length;
+
+    navigator.mediaDevices
+      .getUserMedia({ video: { facingMode: "environment", width: { ideal: 1920 } }, audio: false })
+      .then((stream) => {
+        cameraStream = stream;
+        video.srcObject = stream;
+        overlay.classList.remove("hidden");
+
+        shutterBtn.onclick = () => {
+          const canvas = document.createElement("canvas");
+          const scale = Math.min(1568 / video.videoWidth, 1568 / video.videoHeight, 1);
+          canvas.width = Math.round(video.videoWidth * scale);
+          canvas.height = Math.round(video.videoHeight * scale);
+          canvas.getContext("2d").drawImage(video, 0, 0, canvas.width, canvas.height);
+          const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
+          pendingPhotos.push({ data: dataUrl.split(",")[1], media_type: "image/jpeg" });
+          countEl.textContent = pendingPhotos.length;
+
+          // Thumbnail
+          const img = document.createElement("img");
+          img.src = dataUrl;
+          img.className = "camera-thumb";
+          thumbs.appendChild(img);
+          thumbs.scrollLeft = thumbs.scrollWidth;
+
+          // Flash
+          shutterBtn.style.transform = "scale(1.3)";
+          setTimeout(() => (shutterBtn.style.transform = ""), 120);
+        };
+
+        closeBtn.onclick = () => closeCamera();
+      })
+      .catch((err) => {
+        setStatus("Camera: " + err.message + ". HTTPS required on phone.", "error");
+      });
+  }
+
+  function closeCamera() {
+    const overlay = $("camera-overlay");
+    overlay.classList.add("hidden");
+    if (cameraStream) {
+      cameraStream.getTracks().forEach((t) => t.stop());
+      cameraStream = null;
+    }
+    if (pendingPhotos.length) {
+      // Show thumbnails in transcript
+      const strip = document.createElement("div");
+      strip.className = "photo-strip";
+      pendingPhotos.forEach((p) => {
+        const img = document.createElement("img");
+        img.src = "data:" + p.media_type + ";base64," + p.data;
+        strip.appendChild(img);
+      });
+      transcriptEl.appendChild(strip);
+      transcriptEl.scrollTop = transcriptEl.scrollHeight;
+      setStatus(pendingPhotos.length + " photo(s). Tap mic to tell me about the item.");
+    }
+  }
 
   // ---- Session id (persists across reloads on same browser) ----
   let sessionId = localStorage.getItem("resale_session_id");
@@ -117,14 +193,18 @@
     isRecording = false;
     micBtn.classList.remove("recording");
 
-    const message = currentTranscript.trim();
-    if (!message) {
+    let message = currentTranscript.trim();
+    if (!message && pendingPhotos.length === 0) {
       setStatus("Didn't catch that. Tap to try again.");
       if (partialBubble) {
         partialBubble.remove();
         partialBubble = null;
       }
       return;
+    }
+    // If photos are pending but no voice, send with a default prompt
+    if (!message && pendingPhotos.length > 0) {
+      message = "What's this? Quick ID and price estimate.";
     }
 
     // Promote the partial bubble to final
@@ -162,10 +242,12 @@
     let pendingToolChip = null;
 
     try {
+      // Drain pending photos so they're sent exactly once
+      const images = pendingPhotos.splice(0);
       const resp = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ session_id: sessionId, message }),
+        body: JSON.stringify({ session_id: sessionId, message, images }),
       });
 
       if (!resp.ok || !resp.body) {

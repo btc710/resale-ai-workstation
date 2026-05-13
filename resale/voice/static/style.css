@@ -138,8 +138,112 @@ footer {
   padding: 16px 16px calc(24px + env(safe-area-inset-bottom, 0px)) 16px;
   display: flex;
   justify-content: center;
+  align-items: center;
+  gap: 24px;
   background: var(--bg-2);
   border-top: 1px solid var(--border);
+}
+
+#cam-btn {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  background: var(--bg);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.1s, border-color 0.2s;
+}
+
+#cam-btn:active { transform: scale(0.94); }
+
+.cam-icon { font-size: 24px; }
+
+/* camera overlay */
+.camera-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: #000;
+  display: flex;
+  flex-direction: column;
+}
+
+.camera-overlay.hidden { display: none; }
+
+.camera-overlay video {
+  flex: 1;
+  width: 100%;
+  object-fit: cover;
+}
+
+.camera-thumbs {
+  display: flex;
+  gap: 4px;
+  padding: 6px 12px;
+  overflow-x: auto;
+  background: rgba(0,0,0,0.8);
+  min-height: 52px;
+}
+
+.camera-thumb {
+  width: 44px;
+  height: 44px;
+  border-radius: 6px;
+  object-fit: cover;
+  border: 1px solid var(--border);
+}
+
+.camera-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  padding: 12px 24px calc(16px + env(safe-area-inset-bottom, 0px));
+  background: rgba(0,0,0,0.9);
+}
+
+.camera-ctrl {
+  background: transparent;
+  border: none;
+  color: var(--fg);
+  font-size: 24px;
+  cursor: pointer;
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.camera-ctrl.shutter {
+  font-size: 48px;
+  color: #fff;
+  transition: transform 0.1s;
+}
+
+.camera-ctrl.count {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--accent-active);
+  cursor: default;
+}
+
+.photo-strip {
+  display: flex;
+  gap: 6px;
+  align-self: flex-end;
+  overflow-x: auto;
+  padding: 4px 0;
+}
+
+.photo-strip img {
+  width: 64px;
+  height: 64px;
+  border-radius: 8px;
+  object-fit: cover;
+  border: 1px solid rgba(78, 161, 255, 0.4);
 }
 
 #mic-btn {

@@ -71,6 +71,19 @@ You have persistent memory of this operator across all sessions. Four tools:
 
 (See the always-loaded operator profile that follows for current context. The profile updates over time as the operation evolves.)
 
+# Camera / photo analysis
+
+When the operator sends photos alongside their voice message, they're showing you an item through their phone camera. This replaces their old Grok video workflow — no more copy/paste. Your job:
+
+1. **IDENTIFY** — What is it? Brand, era, type. Read visible marks/labels carefully. If you see a maker's mark, call it out.
+2. **QUICK VERBAL ASSESSMENT** — Condition + estimated price range + best marketplace. Keep it 2-3 sentences, they're standing in the shop.
+3. **AUTO-CAPTURE** — Call `capture` with kind="item" including what you identified, price range, and condition. Don't ask permission, just save.
+4. **OFFER NEXT STEP** — "Want me to generate a full listing?" or "Snap the bottom/marks for a better ID."
+
+If you can't confidently identify it, say so and ask for specific photos: maker's marks, labels, bottom stamps. Better to say "I need to see the bottom" than to guess wrong.
+
+Multiple photos of the same item may arrive — analyze them together as different angles of one item, unless the operator says otherwise.
+
 # Tone
 
 Confident, blue-collar-friendly, no jargon unless they use it first. You run with them; you don't work for them. Push back on bad ideas — don't be a sycophant."""
@@ -88,9 +101,15 @@ _client = anthropic.Anthropic()
 _store = MemoryStore()
 
 
+class ChatImage(BaseModel):
+    data: str
+    media_type: str = "image/jpeg"
+
+
 class ChatRequest(BaseModel):
     session_id: str
     message: str
+    images: List[ChatImage] = []
 
 
 def _build_system() -> List[dict]:
@@ -129,7 +148,11 @@ def _sse(payload: dict) -> str:
 async def chat(req: ChatRequest) -> StreamingResponse:
     """Stream Claude's reply as SSE. Handles multi-iteration tool-use loops."""
     history = _sessions.setdefault(req.session_id, [])
+
+    # Store TEXT-ONLY in history (keeps token cost low across turns).
+    # Images are injected into the CURRENT API call only.
     history.append({"role": "user", "content": req.message})
+    turn_images = req.images  # ephemeral, one-turn-only
 
     def event_stream():
         nonlocal history
@@ -140,17 +163,38 @@ async def chat(req: ChatRequest) -> StreamingResponse:
 
         try:
             for iteration in range(MAX_TOOL_ITERATIONS):
-                # Trim history before each model call so it doesn't grow unbounded
-                # mid-loop (though that's unlikely in a single turn).
                 history = _trim_history(history)
                 _sessions[req.session_id] = history
+
+                # Build messages; inject images into the LAST user message
+                # for the current turn only (first iteration of the loop).
+                api_messages = list(history)
+                if turn_images and iteration == 0:
+                    # Replace last user message with image+text content blocks
+                    last = api_messages[-1]
+                    content_blocks: List[dict] = []
+                    for img in turn_images:
+                        content_blocks.append(
+                            {
+                                "type": "image",
+                                "source": {
+                                    "type": "base64",
+                                    "media_type": img.media_type,
+                                    "data": img.data,
+                                },
+                            }
+                        )
+                    content_blocks.append(
+                        {"type": "text", "text": last["content"]}
+                    )
+                    api_messages[-1] = {"role": "user", "content": content_blocks}
 
                 with _client.messages.stream(
                     model=MODEL,
                     max_tokens=MAX_TOKENS,
                     system=_build_system(),
                     tools=TOOL_DEFINITIONS,
-                    messages=history,
+                    messages=api_messages,
                 ) as stream:
                     pending_tool_name = None
                     for event in stream:

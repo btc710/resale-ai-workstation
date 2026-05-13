@@ -20,10 +20,23 @@
     </div>
 
     <footer>
+      <button id="cam-btn" aria-label="Camera">
+        <span class="cam-icon">📷</span>
+      </button>
       <button id="mic-btn" aria-label="Push to talk">
         <span class="mic-icon">🎤</span>
       </button>
     </footer>
+
+    <div id="camera-overlay" class="camera-overlay hidden">
+      <video id="camera-video" playsinline autoplay muted></video>
+      <div class="camera-thumbs" id="camera-thumbs"></div>
+      <div class="camera-bar">
+        <button id="camera-close" class="camera-ctrl">✕</button>
+        <button id="camera-shutter" class="camera-ctrl shutter">⦿</button>
+        <span id="camera-count" class="camera-ctrl count">0</span>
+      </div>
+    </div>
 
     <script src="/static/app.js"></script>
   </body>
